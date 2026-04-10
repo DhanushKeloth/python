@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chart Basics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h2>Basic Chart</h2>
+
+<canvas id="myChart" height="50" ></canvas>
+
+<script>
+  const ctx = document.getElementById("myChart").getContext("2d");
+
+  const chart = new Chart(ctx, {
+    type: "dotted",
+    data: {
+      labels: ["1", "2", "3", "4", "5"],   // x-axis
+      datasets: [
+        {
+          label: "Temperature",
+          data: [70, 75, 80, 78, 82],     // y-axis
+          borderWidth: 2
+        }
+      ]
+    }
+  });
+</script>
+
+</body>
+</html>
