@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sensor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f8;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    #alerts {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .alert {
+      color: red;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🚀 Real-Time Sensor Dashboard</h1>
+
+<div class="container">
+
+  <!-- Charts -->
+  <div class="card">
+    <h3>T1 Sensor</h3>
+    <canvas id="chartT1"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>T2 Sensor</h3>
+    <canvas id="chartT2"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>T3 Sensor</h3>
+    <canvas id="chartT3"></canvas>
+  </div>
+
+  <!-- Alert Panel -->
+  <div class="card">
+    <h3>🚨 Alerts</h3>
+    <div id="alerts"></div>
+  </div>
+
+</div>
+
+<script>
+  const ws = new WebSocket("ws://localhost:8000/ws");
+
+  // Create charts
+  function createChart(ctx, label) {
+    return new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: label,
+          data: [],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        animation: false
+      }
+    });
+  }
+
+  const chartT1 = createChart(document.getElementById("chartT1"), "T1");
+  const chartT2 = createChart(document.getElementById("chartT2"), "T2");
+  const chartT3 = createChart(document.getElementById("chartT3"), "T3");
+
+  const charts = {
+    "T1": chartT1,
+    "T2": chartT2,
+    "T3": chartT3
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    const sensor = data.sensor_id;
+    const temp = data.temp;
+    const time = data.time;
+    const status = data.status;
+
+    const chart = charts[sensor];
+
+    // update chart
+    chart.data.labels.push(time);
+    chart.data.datasets[0].data.push(temp);
+
+    // keep last 20 points
+    if (chart.data.labels.length > 20) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+
+    // 🚨 ALERT LOGIC
+    if (status === "CRITICAL") {
+      console.log(`🚨 CRITICAL ALERT: ${sensor} → ${temp}°F`);
+
+      const alertBox = document.getElementById("alerts");
+
+      const div = document.createElement("div");
+      div.className = "alert";
+      div.textContent = `[${time}] ${sensor} CRITICAL → ${temp}°F`;
+
+      alertBox.appendChild(div);
+    }
+  };
+</script>
+
+</body>
+</html>
