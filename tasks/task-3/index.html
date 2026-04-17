@@ -9,10 +9,16 @@
     <input type="text" id="name" placeholder="Username" />
     <input type="text" id="room" placeholder="Room" />
     <button onclick="join()">Join</button>
-    <input type="text" id="msg" placeholder="msg" />
+    <input type="text" id="msg" placeholder="msg" oninput="handleTyping()" />
     <button onclick="send()">Send</button>
+    <select id="mode">
+      <option value="room">Room Chat</option>
+      <option value="dm">Private Chat</option>
+    </select>
     <select id="users"></select>
+    <div id="typing"></div>
     <div id="text-box"></div>
+
 
     <script>
       let ws;
@@ -34,34 +40,79 @@
         }; //onopen
 
         ws.onmessage = (event) => {
-  
           let res = JSON.parse(event.data);
-        //   console.log(res)
-        if(res.type=="users"){
+          //   console.log(res)
+          if (res.type == "users") {
             const dropdown = document.getElementById("users");
             dropdown.innerHTML = "";
             res.users.forEach((user) => {
-                const option = document.createElement("option");
-                option.textContent = user;
-                dropdown.appendChild(option);
+              const option = document.createElement("option");
+              option.textContent = user;
+              dropdown.appendChild(option);
             });
-        }
-        else if(res.type=="message"){
+          } else if (res.type == "message") {
             let p = document.createElement("p");
             p.textContent = `${res.name}: ${res.message}`;
             textBox.appendChild(p);
-        }
+          } else if (res.type === "dm") {
+            let p = document.createElement("p");
+            p.textContent = `[DM] ${res.from}: ${res.message}`;
+            p.style.color = "purple";
+            textBox.appendChild(p);
+          }
+          else if (res.type=="typing"){
+            const typingdiv = document.getElementById("typing")
+            if(res.status=="start"){
+              typingdiv.textContent = `${res.name} is typing...`
+            }else{
+              typingdiv.textContent = ""
+            }
+          }
         };
       }
 
       function send() {
-        let msg = document.getElementById("msg");
-        ws.send(JSON.stringify({
-          type:"message",
-          message:msg.value
-        }));
-        msg.value = "";
+        const msg = document.getElementById("msg");
+        const mode = document.getElementById("mode").value;
+        if (mode == "room") {
+          ws.send(
+            JSON.stringify({
+              type: "message",
+              message: msg.value,
+            }),
+          );
+          msg.value = "";
+        } else {
+          const to = document.getElementById("users").value;
+          ws.send(
+            JSON.stringify({
+              type: "dm",
+              to: to,
+              message: msg.value,
+            }),
+          );
+          msg.value = "";
+        }
+      } /*send function */
+      function handleTyping() {
+        let timeout;
+        ws.send(
+          JSON.stringify({
+            type:"typing",
+            status:"start",
+          })
+        )
+        clearTimeout(timeout)
+        timeout=setTimeout(()=>{
+          ws.send(
+            JSON.stringify({
+              type:"typing",
+              status:"stop",
+            })
+          )
+        },1000)
       }
+
     </script>
   </body>
 </html>

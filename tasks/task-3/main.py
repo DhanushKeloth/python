@@ -6,7 +6,7 @@ app = FastAPI()
 connections=[]
 
 rooms = defaultdict(list)
-user_info = {} #name, room
+user_info = {} #websocket->name, room
 user_to_ws = {} #name->websocket
 
 async def broadcasr_users(room):
@@ -27,7 +27,7 @@ async def websocket_connection(websocket:WebSocket):
         while True:
             data = await websocket.receive_text() #recieve data from the client
             res = json.loads(data);
-            print("connected to server")
+            # print("connected to server")
             if res["type"]=="join":
                 name = res["name"]
                 room = res["room"]
@@ -51,8 +51,38 @@ async def websocket_connection(websocket:WebSocket):
                 for users in rooms[room]:
                     data = json.dumps(response)
                     await users.send_text(data) #here users are the client websockets connected 
+            elif res["type"]=="dm":
+                sender = user_info.get(websocket)
+                if not sender:
+                    continue
+
+                reciever_name = res["to"]
+                reciever_ws = user_to_ws.get(reciever_name)
                 
+                dm_payload={
+                    "type":"dm",
+                    "from":sender["name"],
+                    "message":res["message"]
+                }
+                if reciever_ws:
+                    await reciever_ws.send_text(json.dumps(dm_payload))
+                #send to the sender also 
+                await websocket.send_text(json.dumps(dm_payload))
                 # print(user)
+            elif res["type"]=="typing":
+                user = user_info.get(websocket)
+                if not user:
+                    continue
+                room = user["room"]
+                payload = {
+                    "type": "typing",
+                    "name": user["name"],
+                    "status": res["status"]
+                }
+                for conn in rooms[room]:
+                    if conn != websocket:
+                        await conn.send_text(json.dumps(payload))
+                pass
             
     except WebSocketDisconnect:
         user = user_info.get(websocket)
@@ -62,6 +92,8 @@ async def websocket_connection(websocket:WebSocket):
 
             if websocket in rooms[room]:
                 rooms[room].remove(websocket)
+            if name in user_to_ws:
+                del user_to_ws[name]
             del user_info[websocket]
             print(f"{user['name']} left {room}")
             
