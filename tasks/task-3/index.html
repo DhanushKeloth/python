@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <input type="text" id="name" placeholder="Username" />
+    <input type="text" id="room" placeholder="Room" />
+    <button onclick="join()">Join</button>
+    <input type="text" id="msg" placeholder="msg" />
+    <button onclick="send()">Send</button>
+    <select id="users"></select>
+    <div id="text-box"></div>
+
+    <script>
+      let ws;
+      let textBox = document.getElementById("text-box");
+      const name = document.getElementById("name");
+      const room = document.getElementById("room");
+
+      function join() {
+        ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onopen = () => {
+          ws.send(
+            JSON.stringify({
+              type: "join",
+              name: name.value,
+              room: room.value,
+            }),
+          );
+        }; //onopen
+
+        ws.onmessage = (event) => {
+  
+          let res = JSON.parse(event.data);
+        //   console.log(res)
+        if(res.type=="users"){
+            const dropdown = document.getElementById("users");
+            dropdown.innerHTML = "";
+            res.users.forEach((user) => {
+                const option = document.createElement("option");
+                option.textContent = user;
+                dropdown.appendChild(option);
+            });
+        }
+        else if(res.type=="message"){
+            let p = document.createElement("p");
+            p.textContent = `${res.name}: ${res.message}`;
+            textBox.appendChild(p);
+        }
+        };
+      }
+
+      function send() {
+        let msg = document.getElementById("msg");
+        ws.send(JSON.stringify({
+          type:"message",
+          message:msg.value
+        }));
+        msg.value = "";
+      }
+    </script>
+  </body>
+</html>
