@@ -12,7 +12,10 @@ user_to_ws = {} #name->websocket
 async def broadcasr_users(room):
     user_list = []
     for ws in rooms[room]:
-        user_list.append(user_info[ws]['name'])
+        user_list.append({
+            "name": user_info[ws]["name"],
+            "status": "online"   # always online
+        })
     payload = {
         "type":"users",
         "users":user_list
@@ -31,7 +34,7 @@ async def websocket_connection(websocket:WebSocket):
             if res["type"]=="join":
                 name = res["name"]
                 room = res["room"]
-                user_info[websocket]={"name":name,"room":room}
+                user_info[websocket]={"name":name,"room":room,"status":"online"}
                 rooms[room].append(websocket)
                 user_to_ws[name]=websocket
 
@@ -89,7 +92,7 @@ async def websocket_connection(websocket:WebSocket):
         if user:
             room = user["room"]
             name = user["name"]
-
+            user_info[websocket]["status"]="offline"
             if websocket in rooms[room]:
                 rooms[room].remove(websocket)
             if name in user_to_ws:

@@ -167,7 +167,8 @@
             dropdown.innerHTML = "";
             res.users.forEach((user) => {
               const option = document.createElement("option");
-              option.textContent = user;
+              option.value = user.name;
+              option.textContent = `🟢 ${user.name}`;
               dropdown.appendChild(option);
             });
           } else if (res.type == "message") {
@@ -179,6 +180,7 @@
             let div = document.createElement("div");
             div.classList.add("message", "dm");
             div.textContent = `[DM] ${res.from}: ${res.message}`;
+            textBox.appendChild(div);
           }
           else if (res.type=="typing"){
             const typingdiv = document.getElementById("typing")
