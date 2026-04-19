@@ -167,8 +167,12 @@
             dropdown.innerHTML = "";
             res.users.forEach((user) => {
               const option = document.createElement("option");
+
               option.value = user.name;
-              option.textContent = `🟢 ${user.name}`;
+
+              const icon = user.status === "online" ? "🟢" : "🔴";
+              option.textContent = `${icon} ${user.name}`;
+
               dropdown.appendChild(option);
             });
           } else if (res.type == "message") {

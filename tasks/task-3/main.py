@@ -1,6 +1,9 @@
 from fastapi import WebSocket, FastAPI,WebSocketDisconnect
 from collections import defaultdict
 import json
+import redis
+
+r = redis.Redis(host="localhost", port=6379, decode_responses=True)
 
 app = FastAPI()
 connections=[]
@@ -9,17 +12,26 @@ rooms = defaultdict(list)
 user_info = {} #websocket->name, room
 user_to_ws = {} #name->websocket
 
-async def broadcasr_users(room):
-    user_list = []
-    for ws in rooms[room]:
-        user_list.append({
-            "name": user_info[ws]["name"],
-            "status": "online"   # always online
+def get_users(room):
+    users = r.smembers(f"users:{room}")
+    result = []
+
+    for name in users:
+        status = r.hget(f"user:{name}", "status") or "offline"
+        result.append({
+            "name": name,
+            "status": status
         })
+
+    return result
+async def broadcast_users(room):
+    user_list = get_users(room)
+
     payload = {
-        "type":"users",
-        "users":user_list
+        "type": "users",
+        "users": user_list
     }
+
     for ws in rooms[room]:
         await ws.send_text(json.dumps(payload))
 @app.websocket("/ws")
@@ -38,7 +50,13 @@ async def websocket_connection(websocket:WebSocket):
                 rooms[room].append(websocket)
                 user_to_ws[name]=websocket
 
-                await broadcasr_users(room)
+                r.sadd(f"users:{room}", name)
+                r.hset(f"user:{name}", mapping={
+                    "room": room,
+                    "status": "online"
+                })
+
+                await broadcast_users(room)
 
                 print(f"{name} joined room {room}")
                 # print(rooms)
@@ -87,21 +105,30 @@ async def websocket_connection(websocket:WebSocket):
                         await conn.send_text(json.dumps(payload))
                 pass
             
+
     except WebSocketDisconnect:
         user = user_info.get(websocket)
+
         if user:
-            room = user["room"]
             name = user["name"]
-            user_info[websocket]["status"]="offline"
+            room = user["room"]
+
+            # ✅ Redis updates
+            r.hset(f"user:{name}", "status", "offline")
+            # r.srem(f"users:{room}", name)   # ⭐ IMPORTANT FIX
+
+            # ✅ Memory cleanup
             if websocket in rooms[room]:
                 rooms[room].remove(websocket)
+
             if name in user_to_ws:
                 del user_to_ws[name]
+
             del user_info[websocket]
-            print(f"{user['name']} left {room}")
-            
-            await broadcasr_users(room)
-        # connections.remove(websocket)
+
+            print(f"{name} left {room}")
+
+            await broadcast_users(room)
+            # connections.remove(websocket)
         # print("client disconnected")
-    finally:
-        await websocket.close()
+    
